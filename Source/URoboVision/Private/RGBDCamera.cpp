@@ -46,31 +46,21 @@ ARGBDCamera::ARGBDCamera() /*: ACameraActor(), Width(960), Height(540), Framerat
 	TimePassed = 0.f;
 	ColorsUsed = 0;
 
-	// Set FOV and aspect ratio
-	GetCameraComponent()->FieldOfView = FieldOfView;
-	GetCameraComponent()->AspectRatio = Width / (float)Height;
-
 	// Create the vision capture components
 	ColorImgCaptureComp = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("ColorCapture"));
 	ColorImgCaptureComp->SetupAttachment(RootComponent);
 	ColorImgCaptureComp->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
 	ColorImgCaptureComp->TextureTarget = CreateDefaultSubobject<UTextureRenderTarget2D>(TEXT("ColorTarget"));
-	ColorImgCaptureComp->TextureTarget->InitAutoFormat(Width, Height);
-	ColorImgCaptureComp->FOVAngle = FieldOfView;
 	
 	DepthImgCaptureComp = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("DepthCapture"));
 	DepthImgCaptureComp->SetupAttachment(RootComponent);
 	DepthImgCaptureComp->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
 	DepthImgCaptureComp->TextureTarget = CreateDefaultSubobject<UTextureRenderTarget2D>(TEXT("DepthTarget"));
-	DepthImgCaptureComp->TextureTarget->InitAutoFormat(Width, Height);
-	DepthImgCaptureComp->FOVAngle = FieldOfView;
 
 	ObjectMaskImgCaptureComp = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("ObjectCapture"));
 	ObjectMaskImgCaptureComp->SetupAttachment(RootComponent);
 	ObjectMaskImgCaptureComp->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
 	ObjectMaskImgCaptureComp->TextureTarget = CreateDefaultSubobject<UTextureRenderTarget2D>(TEXT("ObjectTarget"));
-	ObjectMaskImgCaptureComp->TextureTarget->InitAutoFormat(Width, Height);
-	ObjectMaskImgCaptureComp->FOVAngle = FieldOfView;
 
 	// Disable the capture components by default (enable if needed in begin play)
 	ColorImgCaptureComp->SetHiddenInGame(true);
@@ -110,16 +100,6 @@ ARGBDCamera::ARGBDCamera() /*: ACameraActor(), Width(960), Height(540), Framerat
 	{
 		OUT_ERROR(TEXT("Could not load material for depth."));
 	}
-
-	// Initializing buffers for reading images from the GPU
-	ImageColor.AddUninitialized(Width * Height);
-	ImageDepth.AddUninitialized(Width * Height);
-	ImageObject.AddUninitialized(Width * Height);
-
-	// Creating double buffer and setting the pointer of the server object
-	Priv = new PrivateData();
-	Priv->Buffer = TSharedPtr<PacketBuffer>(new PacketBuffer(Width, Height, FieldOfView));
-	Priv->Server.Buffer = Priv->Buffer;
 }
 
 ARGBDCamera::~ARGBDCamera()
@@ -132,7 +112,32 @@ ARGBDCamera::~ARGBDCamera()
 void ARGBDCamera::BeginPlay()
 {
 	Super::BeginPlay();
-	OUT_INFO(TEXT("Begin play!"));
+	OUT_INFO(TEXT("Begin play: Initialize what was in the CTOR"));
+	// Set FOV and aspect ratio
+	GetCameraComponent()->FieldOfView = FieldOfView;
+	GetCameraComponent()->AspectRatio = Width / (float)Height;
+
+	ColorImgCaptureComp->TextureTarget->InitAutoFormat(Width, Height);
+	ColorImgCaptureComp->FOVAngle = FieldOfView;
+
+	DepthImgCaptureComp->TextureTarget->InitAutoFormat(Width, Height);
+	DepthImgCaptureComp->FOVAngle = FieldOfView;
+
+	ObjectMaskImgCaptureComp->TextureTarget->InitAutoFormat(Width, Height);
+	ObjectMaskImgCaptureComp->FOVAngle = FieldOfView;
+
+	// Initializing buffers for reading images from the GPU
+	ImageColor.AddUninitialized(Width * Height);
+	ImageDepth.AddUninitialized(Width * Height);
+	ImageObject.AddUninitialized(Width * Height);
+
+	// Creating double buffer and setting the pointer of the server object
+	Priv = new PrivateData();
+	Priv->Buffer = TSharedPtr<PacketBuffer>(new PacketBuffer(Width, Height, FieldOfView));
+	Priv->Server.Buffer = Priv->Buffer;
+
+
+	OUT_INFO(TEXT("Begin play: Initialize the rest"));
 
 	// Starting server
 	Priv->Server.Start(ServerPort, bBindToAnyIP);
